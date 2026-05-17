@@ -1,0 +1,13 @@
+{
+  "email": {
+    "imap_host": "imap.tinno.com",
+    "imap_port": 993,
+    "username": "your_email@tinno.com",
+    "password": "your_email_password",
+    "mailbox": "INBOX"
+  },
+  "scm": {
+    "username": "TNProject01",
+    "password": "Tinno@2030"
+  }
+}
