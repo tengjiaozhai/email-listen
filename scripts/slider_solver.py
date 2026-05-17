@@ -20,11 +20,13 @@ import numpy as np
 
 @dataclass
 class SliderSolution:
-    target_x: int          # gap left edge x in big-image coords
-    target_y: int          # gap top edge y in big-image coords
+    target_x: int          # draggable block left x in big-image coords
+    target_y: int          # draggable block top y in big-image coords
     piece_initial_x: int   # will be filled from DOM later; default 0
     drag_distance: float   # target_x - piece_initial_x
     confidence: float      # template match score [0, 1]
+    template_offset_x: int = 0
+    template_offset_y: int = 0
 
 
 # ── Public API ─────────────────────────────────────────────────────────────
@@ -61,8 +63,11 @@ def solve_slider(
     if small_img is None:
         raise ValueError("Failed to decode smallImg")
 
-    template = _extract_template(small_img)
-    target_x, target_y, confidence = _match_template(big_img, template, y_height, panel_width)
+    template, offset_x, offset_y = _extract_template_with_offset(small_img)
+    match_x, match_y, confidence = _match_template(big_img, template, y_height, panel_width)
+
+    target_x = match_x - offset_x
+    target_y = match_y - offset_y
 
     drag_distance = float(target_x)  # piece_initial_x defaults to 0
 
@@ -72,6 +77,8 @@ def solve_slider(
         piece_initial_x=0,
         drag_distance=drag_distance,
         confidence=confidence,
+        template_offset_x=offset_x,
+        template_offset_y=offset_y,
     )
 
 
@@ -86,6 +93,12 @@ def _decode_data_url(data_url: str) -> bytes:
 
 def _extract_template(small_img: np.ndarray) -> np.ndarray:
     """Crop the puzzle piece to its opaque bounding box, return BGR."""
+    template, _, _ = _extract_template_with_offset(small_img)
+    return template
+
+
+def _extract_template_with_offset(small_img: np.ndarray) -> tuple[np.ndarray, int, int]:
+    """Crop the puzzle piece to its opaque bounding box and keep the crop offset."""
     if small_img.ndim == 3 and small_img.shape[2] == 4:
         alpha = small_img[:, :, 3]
         coords = cv2.findNonZero(alpha)
@@ -93,11 +106,11 @@ def _extract_template(small_img: np.ndarray) -> np.ndarray:
             x, y, w, h = cv2.boundingRect(coords)
             cropped = small_img[y : y + h, x : x + w]
             # Convert BGRA -> BGR for template matching
-            return cv2.cvtColor(cropped, cv2.COLOR_BGRA2BGR)
+            return cv2.cvtColor(cropped, cv2.COLOR_BGRA2BGR), x, y
     # Fallback: already BGR or no alpha
     if small_img.ndim == 3 and small_img.shape[2] == 4:
-        return cv2.cvtColor(small_img, cv2.COLOR_BGRA2BGR)
-    return small_img
+        return cv2.cvtColor(small_img, cv2.COLOR_BGRA2BGR), 0, 0
+    return small_img, 0, 0
 
 
 def _match_template(

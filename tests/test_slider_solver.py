@@ -101,6 +101,22 @@ class TestSolveSlider:
 
         assert result.drag_distance > 0, f"drag_distance={result.drag_distance} should be positive"
 
+    def test_target_reports_alpha_offset(self):
+        """The solver must detect the transparent border around the crop."""
+        from slider_solver import solve_slider
+
+        big_img, gx, gy, gw, gh = _synth_big_image(gap_x=120, gap_y=62)
+        small_img = _synth_small_image(big_img, gx, gy, gw, gh)
+        big_url = _to_data_url(_make_png_bytes(big_img))
+        small_url = _to_data_url(_make_png_bytes(small_img))
+
+        result = solve_slider(big_url, small_url, y_height=gy, panel_width=280)
+
+        assert result.template_offset_x == 3
+        assert result.template_offset_y == 3
+        assert result.target_x == gx
+        assert result.target_y == gy
+
     def test_confidence_above_threshold(self):
         """confidence must be >= 0.3 for a valid match."""
         from slider_solver import solve_slider

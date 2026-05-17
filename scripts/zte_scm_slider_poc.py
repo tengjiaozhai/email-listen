@@ -116,6 +116,37 @@ class JigsawCapture:
         self._event.clear()
 
 
+async def _jigsaw_dialog_open(page: Page) -> bool:
+    dialog = page.locator(".jigsaw-dialog, .el-dialog:has-text('Authentication'), .el-dialog:has-text('安全验证')")
+    if await dialog.count() == 0:
+        return False
+    try:
+        return await dialog.first.is_visible()
+    except Exception:
+        return False
+
+
+async def _trigger_jigsaw_request(page: Page, attempt: int):
+    """Submit login on the first attempt, refresh captcha on retries when possible."""
+    if attempt > 1:
+        for _ in range(6):
+            refresh = page.locator(".jigsaw-dialog .el-icon-refresh-right, .el-icon-refresh-right")
+            if await refresh.count() > 0:
+                await refresh.first.click(force=True)
+                log.info("Clicked captcha refresh")
+                return
+            await page.wait_for_timeout(300)
+
+        close_btn = page.locator(".jigsaw-dialog .el-dialog__headerbtn, .jigsaw-dialog .el-icon-close")
+        if await close_btn.count() > 0:
+            await close_btn.first.click(force=True)
+            log.info("Closed captcha dialog")
+            await page.wait_for_timeout(500)
+
+    await page.click("#btn-signin")
+    log.info("Clicked sign-in")
+
+
 # ── Main flow ──────────────────────────────────────────────────────────────
 
 async def run(username: str, password: str, headless: bool = False):
@@ -175,9 +206,8 @@ async def run(username: str, password: str, headless: bool = False):
             page.on("response", capture.on_response)
             capture.reset()
 
-            # Click sign-in
-            await page.click("#btn-signin")
-            log.info("Clicked sign-in")
+            # First attempt submits credentials; retries refresh the open captcha dialog.
+            await _trigger_jigsaw_request(page, attempt)
 
             # Wait for jigsaw response
             jigsaw_data = await capture.wait(timeout_s=15)
@@ -187,8 +217,8 @@ async def run(username: str, password: str, headless: bool = False):
                 log.warning("No jigsaw response received")
                 attempt_log["status"] = "no_jigsaw_response"
                 run_log["attempts"].append(attempt_log)
-                # Retry: close dialog if open, re-click login
-                await _dismiss_and_retry_login(page, artifacts, attempt)
+                if attempt < MAX_RETRIES:
+                    await page.wait_for_timeout(800)
                 continue
 
             # Save raw jigsaw JSON
@@ -203,7 +233,8 @@ async def run(username: str, password: str, headless: bool = False):
                 log.warning("Missing bigImg or smallImg in response")
                 attempt_log["status"] = "missing_images"
                 run_log["attempts"].append(attempt_log)
-                await _dismiss_and_retry_login(page, artifacts, attempt)
+                if attempt < MAX_RETRIES:
+                    await page.wait_for_timeout(800)
                 continue
 
             # Save decoded images
@@ -268,7 +299,41 @@ async def run(username: str, password: str, headless: bool = False):
                 sy = dom_info["slider_top"] + dom_info["slider_h"] / 2
                 log.info("Dragging: (%.0f, %.0f) → +%.0f px", sx, sy, solution.drag_distance)
                 await _human_drag(page, sx, sy, solution.drag_distance)
-                await page.wait_for_timeout(1500)
+                await page.screenshot(
+                    path=str(artifacts / f"after_drag_attempt_{attempt}.png"),
+                    full_page=True,
+                )
+                try:
+                    post_dom = await page.evaluate("""() => {
+                        const panel = document.querySelector('#sliderPanel');
+                        const block = document.querySelector('#block');
+                        const slider = document.querySelector('#slider');
+                        if (!panel || !block || !slider) return null;
+                        const pr = panel.getBoundingClientRect();
+                        const br = block.getBoundingClientRect();
+                        const sr = slider.getBoundingClientRect();
+                        return {
+                            panel_left: pr.left,
+                            block_left: br.left,
+                            slider_left: sr.left,
+                            slider_top: sr.top,
+                        };
+                    }""")
+                    if post_dom:
+                        attempt_log["post_drag_dom"] = post_dom
+                        log.info(
+                            "Post-drag DOM: block_left=%.0f slider_left=%.0f",
+                            post_dom["block_left"],
+                            post_dom["slider_left"],
+                        )
+                except Exception:
+                    pass
+                # The backend can take several seconds to validate the drag.
+                deadline = time.monotonic() + 10.0
+                while time.monotonic() < deadline:
+                    if await _check_success(page):
+                        break
+                    await page.wait_for_timeout(500)
 
                 # Check success
                 success = await _check_success(page)
@@ -285,7 +350,7 @@ async def run(username: str, password: str, headless: bool = False):
 
             # Retry
             if attempt < MAX_RETRIES:
-                await _dismiss_and_retry_login(page, artifacts, attempt)
+                await page.wait_for_timeout(800)
 
         # ── Step 5: Final state ─────────────────────────────────────────────
         await page.screenshot(path=str(artifacts / "final_state.png"), full_page=True)
@@ -298,34 +363,6 @@ async def run(username: str, password: str, headless: bool = False):
         await browser.close()
 
     return run_log
-
-
-async def _dismiss_and_retry_login(page: Page, artifacts: Path, attempt: int):
-    """Try to refresh captcha or re-click login for retry."""
-    log.info("Preparing retry (attempt %d)...", attempt)
-    try:
-        refresh = page.locator(".el-icon-refresh-right")
-        if await refresh.count() > 0 and await refresh.is_visible():
-            await refresh.click()
-            log.info("Clicked refresh icon")
-            await page.wait_for_timeout(1000)
-            return
-    except Exception:
-        pass
-
-    # Fallback: close dialog and re-click sign-in
-    try:
-        close_btn = page.locator(".el-dialog__close, .el-icon-close")
-        if await close_btn.count() > 0:
-            await close_btn.first.click()
-            await page.wait_for_timeout(500)
-    except Exception:
-        pass
-
-    # Re-click sign-in if still on login page
-    signin = page.locator("#btn-signin")
-    if await signin.count() > 0:
-        await page.wait_for_timeout(500)
 
 
 async def _check_success(page: Page) -> bool:
