@@ -4,6 +4,45 @@
 
 自动化 ZTE SCM 供应链管理平台的登录和发放单下载流程。采用 Python Playwright + 纯 OpenCV 方案，拦截 jigsaw API 返回的图像数据，通过模板匹配定位缺口坐标，执行拟人化拖动，完成后自动进入供方发放页面筛选未签收记录并下载附件。
 
+## 首次使用配置
+
+首次使用前，需要创建 `config.json` 配置文件。系统会读取该文件获取邮件监听凭据。
+
+1. 复制示例配置：
+   ```bash
+   cp config.json.example config.json
+   ```
+
+2. 编辑 `config.json`，填入你的邮件账号密码：
+   ```json
+   {
+     "email": {
+       "imap_host": "imap.tinno.com",
+       "imap_port": 993,
+       "username": "你的邮箱@tinno.com",
+       "password": "你的邮箱密码",
+       "mailbox": "INBOX"
+     }
+   }
+   ```
+
+3. SCM 登录凭据已预设默认值（`TNProject01`/`Tinno@2030`），如需修改可在 `scm` 字段覆盖：
+   ```json
+   {
+     "scm": {
+       "username": "自定义账号",
+       "password": "自定义密码"
+     }
+   }
+   ```
+
+4. 运行邮件监听（收到新邮件自动触发 SCM 下载）：
+   ```bash
+   python3 scripts/email_listener.py --config config.json
+   ```
+
+> **注意：** `config.json` 包含敏感凭据，已加入 `.gitignore`，不会被提交到仓库。
+
 ## 适用场景
 
 - ZTE SCM 供应链平台自动化登录
@@ -22,7 +61,9 @@ email-listen/
 │   ├── scm_send_models.py            # 数据模型和纯辅助函数
 │   ├── scm_send_worker.py            # 下载工人（附件下载 + 清单生成）
 │   ├── run_send_record_downloads.py  # 端到端 CLI 工作流
-│   └── zte_scm_slider_poc.py         # 滑块验证 PoC（独立调试用）
+│   ├── zte_scm_slider_poc.py         # 滑块验证 PoC（独立调试用）
+│   ├── email_config.py               # 邮件配置加载模块
+│   └── email_listener.py             # 邮件监听入口（IMAP IDLE）
 ├── tests/
 │   ├── conftest.py                   # pytest 路径配置
 │   ├── test_slider_solver.py         # 求解器单元测试
@@ -39,6 +80,7 @@ email-listen/
 │   ├── send-record-downloads/        # 发放单下载文件存放目录（固定位置）
 │   └── jigsaw_response.json          # 示例响应数据
 ├── CHANGELOG.md                      # 版本记录
+├── config.json.example               # 配置文件模板
 └── SKILL.md                          # 本文件
 ```
 
