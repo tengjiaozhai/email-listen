@@ -53,3 +53,21 @@ _以下版本待后续迭代更新。_
 - **scm_send_worker.py** — 下载工人，处理附件下载和清单生成
 - **run_send_record_downloads.py** — 端到端 CLI 工作流
 - 供方发放自动化：筛选未签收记录 → 打开详情 → 下载生产技术通知单 → 返回列表继续
+
+---
+
+## [0.3.0] - 2026-05-17
+
+### 新增
+
+- **email_listener.py** — 邮件监听触发 SCM 下载
+  - 新邮件到达时自动运行完整的登录 → 供方发放 → 下载附件流程
+  - 支持回调钩子，可扩展为自定义处理
+- **email_config.py** — JSON 配置加载器
+  - 邮件凭据从 `config.json` 读取（首次使用需配置）
+  - SCM 凭据有默认值，可选覆盖
+- **config.json.example** — 配置文件模板
+
+### 变更
+
+- `email_listener.py` 从项目根目录移至 `scripts/` 目录
