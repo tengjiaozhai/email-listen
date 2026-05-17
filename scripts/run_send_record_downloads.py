@@ -30,41 +30,43 @@ async def run(username: str, password: str, download_root: Path, headless: bool,
 
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=headless)
-        context = await browser.new_context(viewport={"width": 1600, "height": 1000}, locale="zh-CN", accept_downloads=True)
-        page = await context.new_page()
+        try:
+            context = await browser.new_context(viewport={"width": 1600, "height": 1000}, locale="zh-CN", accept_downloads=True)
+            page = await context.new_page()
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_root = build_run_root(download_root, timestamp)
-        run_root.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_root = build_run_root(download_root, timestamp)
+            run_root.mkdir(parents=True, exist_ok=True)
 
-        await login_and_enter_system(page, ScmCredentials(username, password), run_root)
-        right = await open_supply_release_right_frame(page)
-        await query_unsigned_records(right)
-
-        while True:
-            rows = await read_send_rows(right)
-            if not rows or should_stop(rows, processed):
-                break
-
-            row = choose_next_unprocessed(rows, processed)
-            if row is None:
-                break
-
-            await open_send_record(right, row)
-            files = await download_notice_buttons(page, right, row, run_root)
-            manifest_rows.append(build_manifest_row(row, files))
-            processed.add(row.send_number)
-
-            await right.locator("#btnReturn").click()
-            await page.wait_for_timeout(2000)
-            right = require_frame(page, "right")
+            await login_and_enter_system(page, ScmCredentials(username, password), run_root)
+            right = await open_supply_release_right_frame(page)
             await query_unsigned_records(right)
 
-            if limit is not None and len(processed) >= limit:
-                break
+            while True:
+                rows = await read_send_rows(right)
+                if not rows or should_stop(rows, processed):
+                    break
 
-        write_manifest(run_root / "run.json", manifest_rows)
-        await browser.close()
+                row = choose_next_unprocessed(rows, processed)
+                if row is None:
+                    break
+
+                await open_send_record(right, row)
+                files = await download_notice_buttons(page, right, row, run_root)
+                manifest_rows.append(build_manifest_row(row, files))
+                processed.add(row.send_number)
+
+                await right.locator("#btnReturn").click()
+                await page.wait_for_timeout(2000)
+                right = require_frame(page, "right")
+                await query_unsigned_records(right)
+
+                if limit is not None and len(processed) >= limit:
+                    break
+
+            write_manifest(run_root / "run.json", manifest_rows)
+        finally:
+            await browser.close()
 
 
 def main() -> None:
