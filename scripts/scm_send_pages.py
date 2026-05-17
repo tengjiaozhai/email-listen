@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from playwright.async_api import Frame, Page
 
+from scripts.scm_send_models import AttachmentTarget, SendRecordRow, detail_url_to_serial_id, row_matches_keyword
+
 
 class SupplyReleaseNavigator:
     TOP_MENU = "text=供方管理"
@@ -36,3 +38,46 @@ async def open_supply_release_right_frame(page: Page) -> Frame:
         await page.wait_for_timeout(4000)
         right = require_frame(page, "right")
     return right
+
+
+async def query_unsigned_records(right: Frame) -> None:
+    await right.locator("#ddlSignStatus").select_option("0")
+    await right.locator("#btnQuery").click()
+
+
+async def read_send_rows(right: Frame) -> list[SendRecordRow]:
+    rows = []
+    links = right.locator("a[href*='SendRecordDetail.aspx']")
+    count = await links.count()
+    for idx in range(count):
+        link = links.nth(idx)
+        href = await link.get_attribute("href")
+        send_number = (await link.inner_text()).strip()
+        serial_id = detail_url_to_serial_id(href)
+        row_root = link.locator("xpath=ancestor::tr[1]")
+        cells = await row_root.locator("td").all_inner_texts()
+        rows.append(
+            SendRecordRow(
+                send_number=send_number,
+                serial_id=serial_id,
+                title=cells[1].strip() if len(cells) > 1 else "",
+                sender=cells[4].strip() if len(cells) > 4 else "",
+                sent_at=cells[5].strip() if len(cells) > 5 else "",
+            )
+        )
+    return rows
+
+
+async def open_send_record(right: Frame, row: SendRecordRow) -> None:
+    await right.locator(f"a[href*='SendRecordDetail.aspx?SendSerialId={row.serial_id}']").first.click()
+
+
+async def find_notice_attachments(right: Frame, keyword: str) -> list[AttachmentTarget]:
+    targets = []
+    for button_id in ("dtg_AttachList__ctl3_Linkbutton1", "dtg_AttachList__ctl3_Linkbutton2"):
+        locator = right.locator(f"#{button_id}")
+        if await locator.count():
+            row_text = await locator.locator("xpath=ancestor::tr[1]").inner_text()
+            if row_matches_keyword(row_text, keyword):
+                targets.append(AttachmentTarget(display_name=row_text, button_id=button_id))
+    return targets
