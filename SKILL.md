@@ -1,61 +1,118 @@
-# ZTE SCM 滑块验证码自动化 Skill
+# ZTE SCM 供应链自动化 Skill
 
 ## 概述
 
-自动化 ZTE SCM 供应链管理平台的滑块验证码登录流程。采用 Python Playwright + 纯 OpenCV 方案，拦截 jigsaw API 返回的图像数据，通过模板匹配定位缺口坐标，执行拟人化拖动。
+自动化 ZTE SCM 供应链管理平台的登录和发放单下载流程。采用 Python Playwright + 纯 OpenCV 方案，拦截 jigsaw API 返回的图像数据，通过模板匹配定位缺口坐标，执行拟人化拖动，完成后自动进入供方发放页面筛选未签收记录并下载附件。
 
 ## 适用场景
 
 - ZTE SCM 供应链平台自动化登录
 - 滑块验证码 (jigsaw) 的图像求解
 - 需要绕过 UAC 统一认证的滑块验证
+- 供方发放未签收记录的批量下载
 
 ## 目录结构
 
 ```
 email-listen/
 ├── scripts/
-│   ├── slider_solver.py          # 纯 OpenCV 滑块求解器
-│   └── zte_scm_slider_poc.py     # Playwright 自动化主流程
+│   ├── slider_solver.py              # 纯 OpenCV 滑块求解器
+│   ├── scm_auth.py                   # 可复用登录模块（滑块验证码 + 进入系统）
+│   ├── scm_send_pages.py             # 框架感知页面对象（供方发放导航 + 列表/详情）
+│   ├── scm_send_models.py            # 数据模型和纯辅助函数
+│   ├── scm_send_worker.py            # 下载工人（附件下载 + 清单生成）
+│   ├── run_send_record_downloads.py  # 端到端 CLI 工作流
+│   └── zte_scm_slider_poc.py         # 滑块验证 PoC（独立调试用）
 ├── tests/
-│   ├── conftest.py               # pytest 路径配置
-│   └── test_slider_solver.py     # 求解器单元测试
+│   ├── conftest.py                   # pytest 路径配置
+│   ├── test_slider_solver.py         # 求解器单元测试
+│   ├── test_scm_auth_urls.py         # URL 匹配测试
+│   ├── test_scm_send_pages.py        # 页面对象测试
+│   ├── test_scm_send_models.py       # 模型和辅助函数测试
+│   ├── test_scm_send_worker.py       # 下载工人测试
+│   └── test_run_send_record_downloads.py  # CLI 辅助函数测试
 ├── docs/
-│   ├── PLAN.md                   # 实施计划
-│   └── research.md               # 调研记录
+│   ├── PLAN.md                       # 实施计划
+│   └── research.md                   # 调研记录
 ├── artifacts/
-│   ├── slider-poc/               # 运行时调试产物
-│   └── jigsaw_response.json      # 示例响应数据
-├── CHANGELOG.md                  # 版本记录
-└── SKILL.md                      # 本文件
+│   ├── slider-poc/                   # 滑块验证调试产物
+│   ├── send-record-downloads/        # 发放单下载文件存放目录（固定位置）
+│   └── jigsaw_response.json          # 示例响应数据
+├── CHANGELOG.md                      # 版本记录
+└── SKILL.md                          # 本文件
 ```
 
 ## 核心模块
 
-### slider_solver.py
+### scm_auth.py — 登录模块
 
-纯图像求解模块，不依赖 Playwright。
+可复用登录流程，支持滑块验证码自动求解。
 
 ```python
-from slider_solver import solve_slider, SliderSolution
+from scm_auth import ScmCredentials, login_and_enter_system
 
-solution = solve_slider(big_img_data_url, small_img_data_url, y_height=62, panel_width=280)
-# solution.target_x      → 缺口 x 坐标
-# solution.drag_distance  → 拖动距离
-# solution.confidence     → 匹配置信度 [0, 1]
+credentials = ScmCredentials(username="TNProject01", password="xxx")
+await login_and_enter_system(page, credentials, artifacts_dir=Path("artifacts"))
 ```
 
-### zte_scm_slider_poc.py
+### run_send_record_downloads.py — 端到端下载
 
-完整自动化流程脚本。
+完整的发放单下载工作流 CLI。
 
 ```bash
-python3 scripts/zte_scm_slider_poc.py --username TNProject01 --password TNProject01
-# 或通过环境变量
-ZTE_USERNAME=xxx ZTE_PASSWORD=xxx python3 scripts/zte_scm_slider_poc.py
+python3 scripts/run_send_record_downloads.py \
+  --username TNProject01 \
+  --password 'Tinno@2030' \
+  --headless \
+  --limit 10
+```
+
+参数说明：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--username` | SCM 登录账号（必填） | — |
+| `--password` | SCM 登录密码（必填） | — |
+| `--headless` | 无头模式运行 | 否 |
+| `--limit` | 最大下载记录数 | 无限制 |
+
+## 下载目录
+
+**所有下载文件固定存放在 `artifacts/send-record-downloads/` 目录下**，目录结构：
+
+```
+artifacts/send-record-downloads/
+└── <时间戳>/                    # 例如 20260517_161001
+    ├── uac_before_submit.png    # 登录截图
+    ├── run.json                 # 运行清单（记录每条发放单的下载详情）
+    └── <发放单号>/              # 例如 500005314623
+        ├── download1__...7z     # 下载1（生产技术通知单）
+        └── download2__...7z     # 下载2（生产技术通知单）
+```
+
+`run.json` 格式：
+
+```json
+{
+  "records": [
+    {
+      "send_number": "500005314623",
+      "serial_id": "11363656",
+      "title": "生产技术通知单...",
+      "sender": "赵勇攀10015134",
+      "sent_at": "2026-05-15",
+      "downloads": {
+        "dtg_AttachList__ctl3_Linkbutton1": "artifacts/send-record-downloads/.../download1__...7z",
+        "dtg_AttachList__ctl3_Linkbutton2": "artifacts/send-record-downloads/.../download2__...7z"
+      }
+    }
+  ]
+}
 ```
 
 ## 流程说明
+
+### 登录流程
 
 1. 打开 ZTE SCM 入口页
 2. 勾选隐私政策 `#chb_privacy_policy`
@@ -69,9 +126,24 @@ ZTE_USERNAME=xxx ZTE_PASSWORD=xxx python3 scripts/zte_scm_slider_poc.py
 10. 执行拟人拖动（ease-out 曲线, 25-35 步, 350-600ms, overshoot+settle）
 11. 验证成功 / 重试（最多 3 次）
 
+### 下载流程
+
+1. 登录后点击 `进入系统` → 进入 `Index.aspx?TYPE=0`
+2. 顶部菜单 `news` frame 点击 `供方管理`
+3. 左侧 `leftup` frame 展开 `供方发放` 菜单
+4. 进入引导页 → 点击 `#ibtnEnter` → 进入列表页
+5. 筛选 `未签收` 记录（`#ddlSignStatus` 选 `0`，点击 `#btnQuery`）
+6. 循环处理每条记录：
+   - 点击发放单编号打开详情页
+   - 查找包含 `生产技术通知单` 的附件
+   - 点击 `下载1` / `下载2` 保存文件
+   - 点击 `#btnReturn` 返回列表
+   - 重新查询未签收记录
+7. 全部处理完毕后写入 `run.json`
+
 ## 调试产物
 
-每次运行输出到 `artifacts/slider-poc/<timestamp>/`：
+滑块验证调试产物输出到 `artifacts/slider-poc/<timestamp>/`：
 
 | 文件 | 说明 |
 |------|------|
