@@ -105,9 +105,9 @@ Playwright Worker 拉取待处理任务
   ↓
 登录客户 SCM 系统
 打开链接：https://supply.zte.com.cn/sscm/UI/Web/Application/kxscm/kxsup_manager/Portal/index.aspx
-点击登录 -> 输入账号:TNProject01 输入密码:TNProject01 -> 点击登录
+点击登录 -> 输入账号:TNProject01 输入密码:TNProject01 -> 点击登录 -> 通过滑块验证码 -> 点击进入系统
   ↓
-进入：供方管理 → 供方发放 → 进入供方发放页面
+进入：供方管理 → 供方发放下拉框 -> 点击供方发放 -> 点击是 → 进入供方发放页面
   ↓
 筛选/获取“未签收”发放单
   ↓
@@ -117,4 +117,16 @@ Playwright Worker 拉取待处理任务
   ↓
 返回列表，继续下一个发放单
   ↓
-下载成功后更新任务状态
+全部下载成功后结束任务
+
+## 2026-05-17 供方发放自动化补充
+
+- 系统入口页点击 `进入系统` 后进入 `Index.aspx?TYPE=0`
+- 顶部业务菜单 frame 名称：`news`
+- 左侧功能树 frame 名称：`leftup`
+- 主内容 frame 名称：`right`
+- `供方发放` 菜单需要先展开 `#RightNavigationMenu_MenuSection4_SectionHeader`
+- 引导页按钮：`#ibtnEnter`
+- 列表页控件：`#ddlSignStatus`、`#btnQuery`、`#dtg_Doclist__ctl3_HyperLink1`
+- 详情页下载按钮：`#dtg_AttachList__ctl3_Linkbutton1`、`#dtg_AttachList__ctl3_Linkbutton2`
+- 页面文案提示若浏览器原生弹窗出现，应选择 `否`
