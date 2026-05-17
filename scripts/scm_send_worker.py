@@ -5,8 +5,8 @@ from pathlib import Path
 
 from playwright.async_api import Frame, Page
 
-from scripts.scm_send_models import SendRecordRow, sanitize_download_name
-from scripts.scm_send_pages import find_notice_attachments
+from scm_send_models import SendRecordRow, sanitize_download_name
+from scm_send_pages import find_notice_attachments
 
 
 def should_stop(rows: list[SendRecordRow], processed_send_numbers: set[str]) -> bool:

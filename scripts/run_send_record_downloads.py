@@ -3,21 +3,26 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from datetime import datetime
 from pathlib import Path
 
+# Allow running as `python3 scripts/run_send_record_downloads.py` from project root
+if __name__ == "__main__" or __package__ is None:
+    sys.path.insert(0, str(Path(__file__).parent))
+
 from playwright.async_api import async_playwright
 
-from scripts.scm_auth import ScmCredentials, login_and_enter_system
-from scripts.scm_send_models import choose_next_unprocessed
-from scripts.scm_send_pages import (
+from scm_auth import ScmCredentials, login_and_enter_system
+from scm_send_models import choose_next_unprocessed
+from scm_send_pages import (
     open_send_record,
     open_supply_release_right_frame,
     query_unsigned_records,
     read_send_rows,
     require_frame,
 )
-from scripts.scm_send_worker import build_manifest_row, download_notice_buttons, should_stop, write_manifest
+from scm_send_worker import build_manifest_row, download_notice_buttons, should_stop, write_manifest
 
 
 def build_run_root(download_root: Path, timestamp: str) -> Path:
@@ -52,6 +57,8 @@ async def run(username: str, password: str, download_root: Path, headless: bool,
                     break
 
                 await open_send_record(right, row)
+                await page.wait_for_timeout(3000)
+                right = require_frame(page, "right")
                 files = await download_notice_buttons(page, right, row, run_root)
                 manifest_rows.append(build_manifest_row(row, files))
                 processed.add(row.send_number)

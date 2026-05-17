@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from playwright.async_api import Frame, Page
 
-from scripts.scm_send_models import AttachmentTarget, SendRecordRow, detail_url_to_serial_id, row_matches_keyword
+from scm_send_models import AttachmentTarget, SendRecordRow, detail_url_to_serial_id, row_matches_keyword
 
 
 class SupplyReleaseNavigator:
@@ -18,7 +18,8 @@ class SupplyReleaseNavigator:
     async def open_supply_release_menu(self) -> None:
         await self.news.locator(self.TOP_MENU).first.click()
         await self.leftup.locator(self.RELEASE_SECTION).click()
-        await self.leftup.locator(self.RELEASE_ENTRY).click(force=True)
+        await self.leftup.locator(self.RELEASE_ENTRY).wait_for(state="visible", timeout=5000)
+        await self.leftup.locator(self.RELEASE_ENTRY).click()
 
 
 def require_frame(page: Page, name: str) -> Frame:
