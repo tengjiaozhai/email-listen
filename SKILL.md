@@ -33,7 +33,7 @@ triggers:
 - 用户说"监听"、"自动触发"、"邮件来了自动下载" → **启动邮件监听**
 - 用户说"配置"、"设置"、"添加收件人" → **引导编辑 config.json**
 
-> **重要：** `trigger_recipients`（要监听的收件人）需要单独询问用户配置，不要假设默认值。
+> **重要：** `trigger_recipients` 默认监听 `ZTE.Tinno@tinno.com`，用户可自定义修改。
 
 ## 环境检查（首次运行前必检）
 
@@ -106,18 +106,18 @@ python3 -m playwright install chromium
        "username": "你的邮箱@tinno.com",
        "password": "你的邮箱密码",
        "mailbox": "INBOX",
-       "trigger_recipients": ["要监听的收件人@tinno.com"]
+        "trigger_recipients": ["ZTE.Tinno@tinno.com"]
      }
    }
    ```
 
    > **`trigger_recipients`（要监听的收件人）说明：**
-   > - 这是**需要单独询问用户配置**的字段，不要假设默认值
+   > - 默认值：`ZTE.Tinno@tinno.com`（ZTE 供应链通知邮箱）
    > - 配置需要触发 SCM 下载的收件人邮箱地址列表
-   > - 支持多个收件人：`["user1@tinno.com", "group@tinno.com"]`
+   > - 支持多个收件人：`["ZTE.Tinno@tinno.com", "group@tinno.com"]`
    > - 支持群组邮箱：`["scm-group@tinno.com"]`
    > - 为空或不配置时，所有新邮件都会触发（向后兼容）
-   > - **配置时机：** 当用户选择"邮件监听"模式时，必须先询问"要监听哪些收件人的邮件？"
+   > - **配置时机：** 当用户选择"邮件监听"模式时，可询问"要监听哪些收件人的邮件？默认为 ZTE.Tinno@tinno.com"
 
 3. SCM 登录凭据已预设默认值（`TNProject01`/`Tinno@2030`），如需修改可在 `scm` 字段覆盖：
    ```json

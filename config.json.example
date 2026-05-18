@@ -5,7 +5,7 @@
     "username": "your_email@tinno.com",
     "password": "your_email_password",
     "mailbox": "INBOX",
-    "trigger_recipients": ["your_email@tinno.com"]
+    "trigger_recipients": ["ZTE.Tinno@tinno.com"]
   },
   "scm": {
     "username": "TNProject01",
