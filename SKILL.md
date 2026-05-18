@@ -35,6 +35,59 @@ triggers:
 
 > **重要：** `trigger_recipients`（要监听的收件人）需要单独询问用户配置，不要假设默认值。
 
+## 环境检查（首次运行前必检）
+
+**在执行任何操作之前，必须先检查运行环境。** 缺少依赖会导致运行时崩溃。
+
+### 检查命令
+
+```bash
+# 1. 检查 Python 版本（需要 >= 3.11）
+python3 --version
+
+# 2. 检查依赖包是否安装
+python3 -c "import cv2, numpy, playwright, imapclient; print('All dependencies OK')"
+
+# 3. 检查 Playwright 浏览器是否安装
+python3 -m playwright install --dry-run 2>&1 | grep -q "chromium" || python3 -m playwright install chromium
+
+# 4. 检查 config.json 是否存在
+test -f config.json && echo "config.json exists" || echo "config.json missing - need to create"
+```
+
+### 依赖清单
+
+| 依赖 | 用途 | 安装命令 |
+|------|------|----------|
+| Python >= 3.11 | 运行环境 | — |
+| opencv-python | 滑块图像模板匹配 | `pip install opencv-python` |
+| numpy | 图像数组处理 | `pip install numpy` |
+| playwright | 浏览器自动化 | `pip install playwright` |
+| playwright chromium | 浏览器引擎 | `python3 -m playwright install chromium` |
+| imapclient | IMAP 邮件监听 | `pip install imapclient` |
+| pytest | 运行测试 | `pip install pytest` |
+
+### 一键安装
+
+```bash
+pip install -r requirements.txt
+python3 -m playwright install chromium
+```
+
+### 检查失败处理
+
+| 检查项 | 失败表现 | 修复方式 |
+|--------|----------|----------|
+| Python 版本 | 版本 < 3.11 | 安装 Python 3.11+ |
+| opencv-python | `ModuleNotFoundError: No module named 'cv2'` | `pip install opencv-python` |
+| numpy | `ModuleNotFoundError: No module named 'numpy'` | `pip install numpy` |
+| playwright | `ModuleNotFoundError: No module named 'playwright'` | `pip install playwright` |
+| chromium 浏览器 | `Executable doesn't exist` | `python3 -m playwright install chromium` |
+| imapclient | `ModuleNotFoundError: No module named 'imapclient'` | `pip install imapclient` |
+| config.json | `Config file not found` | `cp config.json.example config.json` 并编辑 |
+
+> **约束：** 如果任何检查失败，必须先修复再继续。不要跳过检查直接运行。
+
 ## 首次使用配置
 
 首次使用前，需要创建 `config.json` 配置文件。系统会读取该文件获取邮件监听凭据。
