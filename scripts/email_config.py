@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List
 
 
 class ConfigError(Exception):
@@ -16,6 +17,7 @@ class EmailConfig:
     username: str
     password: str
     mailbox: str = "INBOX"
+    trigger_recipients: List[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,7 @@ def load_config(path: Path) -> AppConfig:
         username=email_raw["username"],
         password=email_raw["password"],
         mailbox=email_raw.get("mailbox", "INBOX"),
+        trigger_recipients=email_raw.get("trigger_recipients", []),
     )
 
     scm_raw = raw.get("scm", {})

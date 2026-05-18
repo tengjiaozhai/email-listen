@@ -49,6 +49,17 @@ def decode_str(s):
     return "".join(result)
 
 
+def should_trigger(to_field: str, config: AppConfig) -> bool:
+    """判断邮件收件人是否匹配配置的触发列表。
+
+    trigger_recipients 为空时，所有邮件都触发（向后兼容）。
+    否则检查 To 字段是否包含列表中的任意一个地址。
+    """
+    if not config.email.trigger_recipients:
+        return True
+    return any(addr in to_field for addr in config.email.trigger_recipients)
+
+
 def connect(config: AppConfig):
     email_cfg = config.email
     log.info("连接 %s:%s ...", email_cfg.imap_host, email_cfg.imap_port)

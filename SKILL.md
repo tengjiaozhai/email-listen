@@ -26,10 +26,13 @@ description: "ZTE SCM 供应链平台自动化登录与发放单下载。当用�
        "imap_port": 993,
        "username": "你的邮箱@tinno.com",
        "password": "你的邮箱密码",
-       "mailbox": "INBOX"
+       "mailbox": "INBOX",
+       "trigger_recipients": ["你的邮箱@tinno.com"]
      }
    }
    ```
+
+   > **`trigger_recipients` 说明：** 配置需要触发 SCM 下载的收件人列表。支持多个收件人（包括群组邮箱）。为空或不配置时，所有新邮件都会触发（向后兼容）。
 
 3. SCM 登录凭据已预设默认值（`TNProject01`/`Tinno@2030`），如需修改可在 `scm` 字段覆盖：
    ```json
