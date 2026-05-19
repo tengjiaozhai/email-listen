@@ -74,19 +74,58 @@ pip install -r requirements.txt
 python3 -m playwright install chromium
 ```
 
+### 自动安装
+
+**首次运行前，系统会自动检测并安装缺失依赖，无需用户手动操作。**
+
+自动安装流程：
+
+1. 检测 Python 版本，若 < 3.11 则报错提示用户手动升级
+2. 检测 `requirements.txt` 中的包，缺失的自动 `pip install`
+3. 检测 Playwright 浏览器，未安装则自动 `python3 -m playwright install chromium`
+4. 检测 `config.json`，不存在则自动从 `config.json.example` 复制并提示用户填写凭据
+
+```bash
+# 自动安装脚本（在执行主逻辑前运行）
+python3 -c "
+import subprocess, sys, shutil
+from pathlib import Path
+
+# 1. 安装 Python 依赖
+subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt', '-q'])
+
+# 2. 安装 Playwright chromium
+subprocess.check_call([sys.executable, '-m', 'playwright', 'install', 'chromium'])
+
+# 3. 检查 config.json
+if not Path('config.json').exists():
+    if Path('config.json.example').exists():
+        shutil.copy('config.json.example', 'config.json')
+        print('已创建 config.json，请填写邮箱密码后重新运行')
+        sys.exit(1)
+    else:
+        print('缺少 config.json 和 config.json.example')
+        sys.exit(1)
+
+print('环境检查通过')
+"
+```
+
+> **约束：** 自动安装仅处理 pip 包和 Playwright 浏览器。Python 版本和 config.json 凭据需用户手动处理。
+
 ### 检查失败处理
 
 | 检查项 | 失败表现 | 修复方式 |
 |--------|----------|----------|
-| Python 版本 | 版本 < 3.11 | 安装 Python 3.11+ |
-| opencv-python | `ModuleNotFoundError: No module named 'cv2'` | `pip install opencv-python` |
-| numpy | `ModuleNotFoundError: No module named 'numpy'` | `pip install numpy` |
-| playwright | `ModuleNotFoundError: No module named 'playwright'` | `pip install playwright` |
-| chromium 浏览器 | `Executable doesn't exist` | `python3 -m playwright install chromium` |
-| imapclient | `ModuleNotFoundError: No module named 'imapclient'` | `pip install imapclient` |
-| config.json | `Config file not found` | `cp config.json.example config.json` 并编辑 |
+| Python 版本 | 版本 < 3.11 | 安装 Python 3.11+（需用户手动） |
+| opencv-python | `ModuleNotFoundError: No module named 'cv2'` | 自动安装 `pip install opencv-python` |
+| numpy | `ModuleNotFoundError: No module named 'numpy'` | 自动安装 `pip install numpy` |
+| playwright | `ModuleNotFoundError: No module named 'playwright'` | 自动安装 `pip install playwright` |
+| chromium 浏览器 | `Executable doesn't exist` | 自动安装 `python3 -m playwright install chromium` |
+| imapclient | `ModuleNotFoundError: No module named 'imapclient'` | 自动安装 `pip install imapclient` |
+| config.json | `Config file not found` | 自动从 `config.json.example` 复制，提示填写凭据 |
 
-> **约束：** 如果任何检查失败，必须先修复再继续。不要跳过检查直接运行。
+> **约束：** 如果任何检查失败且无法自动修复，必须先修复再继续。不要跳过检查直接运行。
 
 ## 首次使用配置
 
