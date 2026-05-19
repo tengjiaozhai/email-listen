@@ -11,6 +11,7 @@ import time
 import logging
 import email
 from email.header import decode_header
+from email.utils import getaddresses
 from pathlib import Path
 from typing import Callable, Awaitable, Union
 
@@ -57,7 +58,17 @@ def should_trigger(to_field: str, config: AppConfig) -> bool:
     """
     if not config.email.trigger_recipients:
         return True
-    return any(addr in to_field for addr in config.email.trigger_recipients)
+    to_addresses = {
+        addr.strip().lower()
+        for _, addr in getaddresses([to_field or ""])
+        if addr and addr.strip()
+    }
+    trigger_addresses = {
+        addr.strip().lower()
+        for addr in config.email.trigger_recipients
+        if addr and addr.strip()
+    }
+    return bool(to_addresses & trigger_addresses)
 
 
 def connect(config: AppConfig):
@@ -79,6 +90,7 @@ def fetch_and_process(
     client,
     msg_ids,
     on_new_email: Callable[[str, str, str], Union[Awaitable[None], None]],
+    config: AppConfig,
 ):
     if not msg_ids:
         return
@@ -91,6 +103,21 @@ def fetch_and_process(
         subject = decode_str(msg.get("Subject", "（无主题）"))
         sender = decode_str(msg.get("From", ""))
         date = msg.get("Date", "")
+        recipient_fields = ", ".join(
+            filter(
+                None,
+                [
+                    decode_str(msg.get("To", "")),
+                    decode_str(msg.get("Cc", "")),
+                    decode_str(msg.get("Delivered-To", "")),
+                    decode_str(msg.get("X-Original-To", "")),
+                ],
+            )
+        )
+
+        if not should_trigger(recipient_fields, config):
+            log.info("UID=%s 收件人不在 trigger_recipients 中，跳过触发", uid)
+            continue
 
         print("\n" + "=" * 60)
         print(f"  UID    : {uid}")
@@ -123,7 +150,7 @@ def listen(
                 current_uids = set(client.search(["ALL"]))
                 new_uids = current_uids - known_uids
                 if new_uids:
-                    fetch_and_process(client, list(new_uids), on_new_email)
+                    fetch_and_process(client, list(new_uids), on_new_email, config)
                     known_uids = current_uids
                 else:
                     log.info("推送为状态变更（非新邮件），忽略")
