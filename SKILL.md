@@ -80,7 +80,11 @@ python3 -m playwright install chromium
 
 自动安装流程：
 
-1. 检测 Python 版本，若 < 3.11 则报错提示用户手动升级
+1. 检测 Python 环境和版本：
+   - 若未检测到 Python（如 `python3: command not found`），提示用户先安装 Python 3.11+
+   - macOS：可用 Homebrew 安装 `brew install python@3.11`，或从 python.org 下载官方安装包
+   - Windows：可从 python.org 下载官方安装包（安装时勾选 Add python.exe to PATH），或使用 `winget install Python.Python.3.11`
+   - 若版本 < 3.11，则报错提示用户手动升级
 2. 检测 `requirements.txt` 中的包，缺失的自动 `pip install`
 3. 检测 Playwright 浏览器，未安装则自动 `python3 -m playwright install chromium`
 4. 检测 `config.json`，不存在则自动从 `config.json.example` 复制并提示用户填写凭据
@@ -111,12 +115,13 @@ print('环境检查通过')
 "
 ```
 
-> **约束：** 自动安装仅处理 pip 包和 Playwright 浏览器。Python 版本和 config.json 凭据需用户手动处理。
+> **约束：** 自动安装仅处理 pip 包和 Playwright 浏览器。Python 安装/版本与 config.json 凭据需用户手动处理。
 
 ### 检查失败处理
 
 | 检查项 | 失败表现 | 修复方式 |
 |--------|----------|----------|
+| Python 环境 | `python3: command not found` / `No such file or directory` | 先安装 Python 3.11+：macOS 用 `brew install python@3.11`（或 python.org 安装包）；Windows 用 python.org 安装包（勾选 Add python.exe to PATH）或 `winget install Python.Python.3.11` |
 | Python 版本 | 版本 < 3.11 | 安装 Python 3.11+（需用户手动） |
 | opencv-python | `ModuleNotFoundError: No module named 'cv2'` | 自动安装 `pip install opencv-python` |
 | numpy | `ModuleNotFoundError: No module named 'numpy'` | 自动安装 `pip install numpy` |
