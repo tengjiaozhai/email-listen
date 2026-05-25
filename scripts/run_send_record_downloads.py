@@ -23,13 +23,14 @@ from scm_send_pages import (
     require_frame,
 )
 from scm_send_worker import build_manifest_row, download_notice_buttons, should_stop, write_manifest
+from wecom_notifier import notify
 
 
 def build_run_root(download_root: Path, timestamp: str) -> Path:
     return download_root / timestamp
 
 
-async def run(username: str, password: str, download_root: Path, headless: bool, limit: int | None) -> None:
+async def run(username: str, password: str, download_root: Path, headless: bool, limit: int | None, webhook: str) -> None:
     processed: set[str] = set()
     manifest_rows: list[dict] = []
 
@@ -59,8 +60,9 @@ async def run(username: str, password: str, download_root: Path, headless: bool,
                 await open_send_record(right, row)
                 await page.wait_for_timeout(3000)
                 right = require_frame(page, "right")
-                files = await download_notice_buttons(page, right, row, run_root)
-                manifest_rows.append(build_manifest_row(row, files))
+                files, extracted = await download_notice_buttons(page, right, row, run_root)
+                notification = notify(webhook, row.send_number, extracted)
+                manifest_rows.append(build_manifest_row(row, files, extracted, notification))
                 processed.add(row.send_number)
 
                 await right.locator("#btnReturn").click()
@@ -83,8 +85,9 @@ def main() -> None:
     parser.add_argument("--download-root", type=Path, default=Path("artifacts"))
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--webhook", required=True)
     args = parser.parse_args()
-    asyncio.run(run(args.username, args.password, args.download_root, args.headless, args.limit))
+    asyncio.run(run(args.username, args.password, args.download_root, args.headless, args.limit, args.webhook))
 
 
 if __name__ == "__main__":

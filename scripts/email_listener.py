@@ -190,6 +190,7 @@ def main():
             download_root=Path("artifacts"),
             headless=True,
             limit=None,
+            webhook=config.wecom.webhook,
         ))
         log.info("SCM 下载流程完成")
 

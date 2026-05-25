@@ -27,9 +27,15 @@ class ScmConfig:
 
 
 @dataclass(frozen=True)
+class WecomConfig:
+    webhook: str
+
+
+@dataclass(frozen=True)
 class AppConfig:
     email: EmailConfig
     scm: ScmConfig
+    wecom: WecomConfig
 
 
 _SCM_DEFAULTS = ScmConfig(username="TNProject01", password="Tinno@2030")
@@ -66,4 +72,10 @@ def load_config(path: Path) -> AppConfig:
         password=scm_raw.get("password", _SCM_DEFAULTS.password),
     )
 
-    return AppConfig(email=email, scm=scm)
+    wecom_raw = raw.get("wecom", {})
+    webhook = wecom_raw.get("webhook", "")
+    if not webhook:
+        raise ConfigError("Missing wecom.webhook in config")
+    wecom = WecomConfig(webhook=webhook)
+
+    return AppConfig(email=email, scm=scm, wecom=wecom)

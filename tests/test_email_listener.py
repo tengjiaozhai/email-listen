@@ -140,7 +140,10 @@ def _make_config(trigger_recipients=None):
             "imap_port": 993,
             "username": "user@tinno.com",
             "password": "pass123",
-        }
+        },
+        "wecom": {
+            "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test-key"
+        },
     }
     if trigger_recipients is not None:
         cfg["email"]["trigger_recipients"] = trigger_recipients

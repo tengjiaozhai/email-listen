@@ -10,5 +10,8 @@
   "scm": {
     "username": "TNProject01",
     "password": "Tinno@2030"
+  },
+  "wecom": {
+    "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY_HERE"
   }
 }

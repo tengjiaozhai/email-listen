@@ -22,12 +22,14 @@ def test_build_manifest_row_writes_button_results():
         "dtg_AttachList__ctl3_Linkbutton1": Path("artifacts/5001/download1__notice.7z"),
         "dtg_AttachList__ctl3_Linkbutton2": Path("artifacts/5001/download2__notice.7z"),
     }
-    manifest_row = build_manifest_row(row, files)
+    manifest_row = build_manifest_row(row, files, extracted_files=[])
     assert manifest_row["send_number"] == "5001"
     assert sorted(manifest_row["downloads"].keys()) == [
         "dtg_AttachList__ctl3_Linkbutton1",
         "dtg_AttachList__ctl3_Linkbutton2",
     ]
+    assert manifest_row["extracted_files"] == []
+    assert manifest_row["notification"] is None
 
 
 def _make_7z(path: Path, filename: str = "content.txt", content: str = "hello") -> None:
@@ -48,8 +50,9 @@ def test_extract_download_prefers_download1(tmp_path: Path):
         "dtg_AttachList__ctl3_Linkbutton1": d1,
         "dtg_AttachList__ctl3_Linkbutton2": d2,
     }
-    extract_download(saved, tmp_path)
+    result = extract_download(saved, tmp_path)
 
+    assert len(result) > 0, "应返回解压出的文件列表"
     extracted = list(tmp_path.rglob("from_d1.txt"))
     assert extracted, "download1 应被解压"
     assert not list(tmp_path.rglob("from_d2.txt")), "download2 不应被解压"
@@ -62,11 +65,13 @@ def test_extract_download_falls_back_to_download2(tmp_path: Path):
     saved = {
         "dtg_AttachList__ctl3_Linkbutton2": d2,
     }
-    extract_download(saved, tmp_path)
+    result = extract_download(saved, tmp_path)
 
+    assert len(result) > 0, "应返回解压出的文件列表"
     extracted = list(tmp_path.rglob("from_d2.txt"))
     assert extracted, "download2 应在没有 download1 时被解压"
 
 
 def test_extract_download_does_nothing_when_no_files(tmp_path: Path):
-    extract_download({}, tmp_path)  # 不应抛出异常
+    result = extract_download({}, tmp_path)
+    assert result == []
