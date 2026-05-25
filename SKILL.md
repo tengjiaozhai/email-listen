@@ -257,10 +257,10 @@ python3 scripts/run_send_record_downloads.py \
 
 ## 下载目录
 
-**所有下载文件默认存放在运行命令时的当前工作目录（cwd）下**，目录结构：
+**所有下载文件默认存放在运行命令时的当前工作目录下的 `artifacts/` 子目录**，目录结构：
 
 ```
-<cwd>/
+<cwd>/artifacts/
 └── <时间戳>/                    # 例如 20260517_161001
     ├── uac_before_submit.png    # 登录截图
     ├── run.json                 # 运行清单（记录每条发放单的下载详情）
