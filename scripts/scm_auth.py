@@ -61,8 +61,11 @@ async def _human_drag(page: Page, start_x: float, start_y: float, distance: floa
 async def _check_success(page: Page) -> bool:
     if is_index_url(page.url):
         return True
-    if await page.locator(".jigsaw-dialog").count():
-        return False
+    try:
+        if await page.locator(".jigsaw-dialog").count():
+            return False
+    except Exception:
+        pass
     return is_callback_url(page.url)
 
 
