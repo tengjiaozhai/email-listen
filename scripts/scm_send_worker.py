@@ -1,12 +1,17 @@
+# scripts/scm_send_worker.py
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
+import py7zr
 from playwright.async_api import Frame, Page
 
 from scm_send_models import SendRecordRow, sanitize_download_name
 from scm_send_pages import find_notice_attachments
+
+log = logging.getLogger(__name__)
 
 
 def should_stop(rows: list[SendRecordRow], processed_send_numbers: set[str]) -> bool:
@@ -22,6 +27,26 @@ def build_manifest_row(row: SendRecordRow, files: dict[str, Path]) -> dict:
         "sent_at": row.sent_at,
         "downloads": {button_id: str(path) for button_id, path in files.items()},
     }
+
+
+def extract_download(saved: dict[str, Path], output_dir: Path) -> None:
+    """解压 saved 中优先级最高的 7z 文件到 output_dir。
+
+    优先解压 download1（Linkbutton1），没有时才解压 download2（Linkbutton2）。
+    """
+    if not saved:
+        return
+
+    d1_key = next((k for k in saved if k.endswith("Linkbutton1")), None)
+    d2_key = next((k for k in saved if k.endswith("Linkbutton2")), None)
+    target = saved.get(d1_key) if d1_key else saved.get(d2_key) if d2_key else None
+
+    if target is None:
+        return
+
+    log.info("解压 %s -> %s", target.name, output_dir)
+    with py7zr.SevenZipFile(target, mode="r") as archive:
+        archive.extractall(path=output_dir)
 
 
 async def download_notice_buttons(
@@ -44,6 +69,8 @@ async def download_notice_buttons(
         output_path = output_dir / f"{prefix}__{safe_name}"
         await download.save_as(output_path)
         saved[target.button_id] = output_path
+
+    extract_download(saved, output_dir)
     return saved
 
 
