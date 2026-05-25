@@ -257,16 +257,22 @@ python3 scripts/run_send_record_downloads.py \
 
 ## 下载目录
 
-**所有下载文件固定存放在 `artifacts/send-record-downloads/` 目录下**，目录结构：
+**所有下载文件默认存放在运行命令时的当前工作目录（cwd）下**，目录结构：
 
 ```
-artifacts/send-record-downloads/
+<cwd>/
 └── <时间戳>/                    # 例如 20260517_161001
     ├── uac_before_submit.png    # 登录截图
     ├── run.json                 # 运行清单（记录每条发放单的下载详情）
     └── <发放单号>/              # 例如 500005314623
         ├── download1__...7z     # 下载1（生产技术通知单）
         └── download2__...7z     # 下载2（生产技术通知单）
+```
+
+也可以通过 `--download-root` 参数指定其他目录：
+
+```bash
+python3 scripts/run_send_record_downloads.py --download-root /path/to/dir ...
 ```
 
 `run.json` 格式：

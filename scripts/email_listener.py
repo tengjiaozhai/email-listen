@@ -187,7 +187,7 @@ def main():
         asyncio.run(scm_run(
             username=config.scm.username,
             password=config.scm.password,
-            download_root=Path("artifacts/send-record-downloads"),
+            download_root=Path("."),
             headless=True,
             limit=None,
         ))

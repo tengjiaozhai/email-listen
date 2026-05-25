@@ -80,7 +80,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Download production notices from SCM send records")
     parser.add_argument("--username", required=True)
     parser.add_argument("--password", required=True)
-    parser.add_argument("--download-root", type=Path, default=Path("artifacts/send-record-downloads"))
+    parser.add_argument("--download-root", type=Path, default=Path("."))
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--limit", type=int)
     args = parser.parse_args()
