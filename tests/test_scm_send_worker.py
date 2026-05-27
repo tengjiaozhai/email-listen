@@ -75,3 +75,31 @@ def test_extract_download_falls_back_to_download2(tmp_path: Path):
 def test_extract_download_does_nothing_when_no_files(tmp_path: Path):
     result = extract_download({}, tmp_path)
     assert result == []
+
+
+def _make_zip(path: Path, filename: str = "content.txt", content: str = "hello") -> None:
+    """在 path 创建一个包含单个文本文件的 zip 压缩包。"""
+    import zipfile
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr(filename, content)
+
+
+def test_extract_download_handles_zip(tmp_path: Path):
+    d1 = tmp_path / "download1__notice.zip"
+    _make_zip(d1, "from_zip.txt")
+
+    saved = {"dtg_AttachList__ctl3_Linkbutton1": d1}
+    result = extract_download(saved, tmp_path)
+
+    assert list(tmp_path.rglob("from_zip.txt")), "zip 文件应被解压"
+    assert len(result) > 0
+
+
+def test_extract_download_zip_not_in_returned_files(tmp_path: Path):
+    d1 = tmp_path / "download1__notice.zip"
+    _make_zip(d1, "from_zip.txt")
+
+    saved = {"dtg_AttachList__ctl3_Linkbutton1": d1}
+    result = extract_download(saved, tmp_path)
+
+    assert all(p.suffix != ".zip" for p in result), "返回列表不应包含 .zip 文件本身"

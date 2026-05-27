@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import zipfile
 from pathlib import Path
 
 import py7zr
@@ -18,12 +19,7 @@ def should_stop(rows: list[SendRecordRow], processed_send_numbers: set[str]) -> 
     return all(row.send_number in processed_send_numbers for row in rows)
 
 
-def build_manifest_row(
-    row: SendRecordRow,
-    files: dict[str, Path],
-    extracted_files: list[Path],
-    notification: dict | None = None,
-) -> dict:
+def build_manifest_row(row: SendRecordRow, files: dict[str, Path], extracted_files: list[Path], notification: dict | None = None) -> dict:
     return {
         "send_number": row.send_number,
         "serial_id": row.serial_id,
@@ -37,10 +33,11 @@ def build_manifest_row(
 
 
 def extract_download(saved: dict[str, Path], output_dir: Path) -> list[Path]:
-    """解压 saved 中优先级最高的 7z 文件到 output_dir。
+    """解压 saved 中优先级最高的压缩文件到 output_dir。
 
+    支持 .7z 和 .zip 格式。
     优先解压 download1（Linkbutton1），没有时才解压 download2（Linkbutton2）。
-    返回解压出的普通文件路径列表（不含目录和 .7z 文件）。
+    返回解压出的普通文件路径列表（不含目录和压缩包本身）。
     """
     if not saved:
         return []
@@ -53,10 +50,17 @@ def extract_download(saved: dict[str, Path], output_dir: Path) -> list[Path]:
         return []
 
     log.info("解压 %s -> %s", target.name, output_dir)
-    with py7zr.SevenZipFile(target, mode="r") as archive:
-        archive.extractall(path=output_dir)
+    if target.suffix.lower() == ".zip":
+        with zipfile.ZipFile(target, "r") as zf:
+            zf.extractall(path=output_dir)
+    else:
+        with py7zr.SevenZipFile(target, mode="r") as archive:
+            archive.extractall(path=output_dir)
 
-    return [p for p in output_dir.glob("*") if p.is_file() and p.suffix != ".7z"]
+    return [
+        p for p in output_dir.glob("*")
+        if p.is_file() and p.suffix.lower() not in {".7z", ".zip"}
+    ]
 
 
 async def download_notice_buttons(
