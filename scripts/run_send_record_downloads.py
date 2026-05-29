@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 # Allow running as `python3 scripts/run_send_record_downloads.py` from project root
 if __name__ == "__main__" or __package__ is None:
@@ -14,7 +17,7 @@ if __name__ == "__main__" or __package__ is None:
 from playwright.async_api import async_playwright
 
 from scm_auth import ScmCredentials, login_and_enter_system
-from scm_send_models import choose_next_unprocessed
+from scm_send_models import choose_next_unprocessed, matches_title_filter
 from scm_send_pages import (
     open_send_record,
     open_supply_release_right_frame,
@@ -30,7 +33,7 @@ def build_run_root(download_root: Path, timestamp: str) -> Path:
     return download_root / timestamp
 
 
-async def run(username: str, password: str, download_root: Path, headless: bool, limit: int | None, webhook: str) -> None:
+async def run(username: str, password: str, download_root: Path, headless: bool, limit: int | None, webhook: str, title_filter: str | None = None) -> None:
     processed: set[str] = set()
     manifest_rows: list[dict] = []
 
@@ -53,7 +56,12 @@ async def run(username: str, password: str, download_root: Path, headless: bool,
                 if not rows or should_stop(rows, processed):
                     break
 
-                row = choose_next_unprocessed(rows, processed)
+                eligible = [r for r in rows if matches_title_filter(r, title_filter)]
+                if not eligible:
+                    log.warning("SCM 列表中无标题匹配 %r 的未签收记录，跳过本次下载", title_filter)
+                    break
+
+                row = choose_next_unprocessed(eligible, processed)
                 if row is None:
                     break
 
