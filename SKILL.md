@@ -303,6 +303,79 @@ python3 scripts/run_send_record_downloads.py \
 | `--headless` | 无头模式运行 | 否 |
 | `--limit` | 最大下载记录数 | 无限制 |
 
+### email_listener.py — 邮件监听入口
+
+监听 IMAP 收件箱，新邮件到达时回调，从邮件 body 提取发放标题后触发 SCM 下载。
+
+```python
+from email_listener import listen, extract_title_filter_from_body
+from email_config import load_config
+from pathlib import Path
+
+# 提取邮件正文中的发放标题
+body = "发放人:cui@zte.com.cn\n内容:P615F03 生产技术通知单20260520"
+title = extract_title_filter_from_body(body)
+# title == "P615F03 生产技术通知单20260520"
+
+# 自定义回调：收到匹配邮件时触发
+def on_email(subject: str, sender: str, date: str, title_filter: str | None):
+    print(f"触发下载，标题过滤: {title_filter}")
+
+config = load_config(Path("config.json"))
+listen(config, on_email)  # 阻塞，IMAP IDLE 循环
+```
+
+### scm_send_models.py — 数据模型
+
+纯函数/数据模型，无 IO，可在测试中直接使用。
+
+```python
+from scm_send_models import SendRecordRow, matches_title_filter, choose_next_unprocessed
+
+# 发放记录行
+row = SendRecordRow(
+    send_number="500005314623",
+    serial_id="11363656",
+    title="P615F03 生产技术通知单20260520",
+    sender="赵勇攀10015134",
+    sent_at="2026-05-15",
+)
+
+# 标题精确匹配过滤（None 表示不过滤）
+matches_title_filter(row, "P615F03 生产技术通知单20260520")  # True
+matches_title_filter(row, None)                              # True（不过滤）
+matches_title_filter(row, "其他标题")                        # False
+
+# 从行列表中选取下一条未处理记录
+rows = [row1, row2, row3]
+processed = {"500005314623"}
+next_row = choose_next_unprocessed(rows, processed)
+# next_row == row2
+```
+
+### scm_send_worker.py — 下载工人
+
+负责点击下载按钮、保存文件、解压、生成清单行。通常由 `run_send_record_downloads.py` 驱动。
+
+```python
+from scm_send_worker import download_notice_buttons, build_manifest_row
+from pathlib import Path
+
+# 下载指定发放记录的附件（需要 Playwright page 和 right frame）
+files, extracted = await download_notice_buttons(
+    page=page,
+    right=right,
+    row=row,
+    download_root=Path("artifacts/20260529_120000"),
+    keyword="生产技术通知单",  # 默认值，一般不需要改
+)
+# files: {"dtg_AttachList__ctl3_Linkbutton1": Path("artifacts/.../download1__xxx.7z")}
+# extracted: [Path("artifacts/.../P615F03...pdf")]
+
+# 构建 run.json 中的一行清单数据
+manifest_row = build_manifest_row(row, files, extracted, notification=None)
+```
+
 ## 下载目录
 
 **所有下载文件默认存放在运行命令时的当前工作目录下的 `artifacts/` 子目录**，目录结构：
