@@ -13,7 +13,7 @@ def send_text(webhook: str, send_number: str) -> None:
         "msgtype": "text",
         "text": {
             "content": (
-                f"@所有人【发放单提醒】\n"
+                f"【发放单提醒】\n"
                 f"本次发放单编号：{send_number}\n"
                 "请相关人员前往 BPM 系统查阅核对，知悉办理～"
             ),

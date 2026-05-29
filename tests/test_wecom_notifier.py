@@ -40,6 +40,7 @@ class TestSendText(unittest.TestCase):
         self.assertEqual(payload["msgtype"], "text")
         self.assertIn("SN-20260525-001", payload["text"]["content"])
         self.assertIn("@all", payload["text"]["mentioned_list"])
+        self.assertNotIn("@所有人", payload["text"]["content"])
 
     @patch("requests.post")
     def test_send_text_raises_on_error(self, mock_post):
