@@ -23,6 +23,18 @@ not_triggers:
 
 自动化 ZTE SCM 供应链管理平台的登录和发放单下载流程。采用 Python Playwright + 纯 OpenCV 方案，拦截 jigsaw API 返回的图像数据，通过模板匹配定位缺口坐标，执行拟人化拖动，完成后自动进入供方发放页面筛选未签收记录并下载附件。
 
+## CONSTRAINTS（硬性约束）
+
+**使用本 skill 时，以下规则不可违反：**
+
+- **MUST** 在执行任何操作前完成环境检查（见"环境检查"章节）
+- **MUST** 确保 `config.json` 中凭据真实有效，不得使用占位符
+- **MUST NOT** 在已签收记录上重复触发下载（SCM 不允许重签收）
+- **MUST NOT** 将 `config.json` 提交到 Git（已加入 `.gitignore`）
+- **MUST NOT** 在目标 URL 不含 `supply.zte.com.cn` 的场景下使用本 skill
+- **SHOULD** 首次运行使用有头模式（去掉 `--headless`）验证滑块求解是否正常
+- **SHOULD** 在正式使用前先用 `--limit 1` 测试单条记录下载
+
 ## 适用场景与禁用场景
 
 ### 适用场景（MUST USE）
@@ -473,3 +485,43 @@ python3 -m pytest tests/ -v
 - opencv-python
 - numpy
 - playwright
+
+## 故障排查
+
+### 滑块验证码失败 / 登录循环
+
+| 症状 | 可能原因 | 排查步骤 |
+|---|---|---|
+| 拖动后验证码仍不消失，重试 3 次后报错 | OpenCV 求解偏差过大 | 1. 去掉 `--headless`，运行 `zte_scm_slider_poc.py` 查看 `overlay.png` 是否定位正确；2. 检查 `artifacts/slider-poc/<timestamp>/overlay.png` |
+| `Executable doesn't exist` | Playwright chromium 未安装 | `python3 -m playwright install chromium` |
+| `TimeoutError: Locator.click` | 页面加载慢或选择器失效 | 1. 检查网络连通性：`curl -I https://supply.zte.com.cn`；2. 增大 `wait_for_timeout` 值；3. 截图对比页面实际结构 |
+
+### 邮件监听无响应
+
+| 症状 | 可能原因 | 排查步骤 |
+|---|---|---|
+| 收到邮件但未触发 SCM | 收件人不在 `trigger_recipients` | 检查邮件原始头的 `To`/`Cc`/`Delivered-To` 是否与配置匹配 |
+| 收到邮件但未触发 SCM | 邮件 body 无 `内容:` 字段 | 查看日志中 `UID=xxx 邮件正文未找到「内容」字段` |
+| 收到邮件但未触发 SCM | SCM 列表无匹配标题 | 查看日志中 `SCM 列表中无标题匹配` |
+| IMAP 连接断开 | 网络波动或服务器超时 | 正常现象，程序自动重连（10 秒后）；持续断连检查 `imap_host`/`imap_port` |
+
+### 下载文件为空或解压失败
+
+| 症状 | 可能原因 | 排查步骤 |
+|---|---|---|
+| `download1__*.7z` 文件大小为 0 | 下载超时（默认 10s） | 检查网络带宽；增大 `download_notice_buttons` 中的 `timeout=10000` |
+| `py7zr` 解压报错 | 文件损坏或格式不符 | 手动用 7-Zip 打开检查；确认下载文件完整性 |
+| `run.json` 中 `extracted_files` 为空 | 附件不是 `.7z`/`.zip` 格式 | 查看 `downloads` 字段确认文件后缀 |
+
+### ConfigError 速查
+
+```
+ConfigError: Config file not found: config.json
+  → cp config.json.example config.json 后填写凭据
+
+ConfigError: Missing email config fields: imap_host, password
+  → config.json 中 email 节点缺少对应字段
+
+ConfigError: Missing wecom.webhook in config
+  → config.json 中 wecom.webhook 为空或缺失
+```
