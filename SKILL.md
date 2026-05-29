@@ -1,5 +1,7 @@
 ---
 name: zte-scm-slider-captcha
+version: "1.1.0"
+license: "MIT"
 description: "ZTE SCM 供应链平台自动化登录与发放单下载。当用户提到 ZTE SCM、滑块验证码、供应链平台登录、发放单下载、生产技术通知单下载时触发此技能。支持邮件监听自动触发和手动 CLI 两种模式。"
 triggers:
   - "ZTE SCM"
@@ -8,8 +10,11 @@ triggers:
   - "发放单下载"
   - "生产技术通知单"
   - "jigsaw captcha"
-  - "下载附件"
   - "未签收"
+not_triggers:
+  - "下载其他平台附件"
+  - "邮件内容分析"
+  - "非 ZTE SCM 登录"
 ---
 
 # ZTE SCM 供应链自动化 Skill
