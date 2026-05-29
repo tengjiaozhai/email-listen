@@ -42,3 +42,10 @@ def record_download_dir(root: Path, send_number: str) -> Path:
 
 def sanitize_download_name(filename: str) -> str:
     return filename.replace("/", "_").replace("\\", "_").strip()
+
+
+def matches_title_filter(row: SendRecordRow, title_filter: "str | None") -> bool:
+    """title_filter 为 None 时匹配所有行；否则要求 row.title 与 title_filter 精确相等。"""
+    if title_filter is None:
+        return True
+    return row.title == title_filter
