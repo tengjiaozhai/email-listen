@@ -8,6 +8,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import requests
+
 log = logging.getLogger(__name__)
 
 # Allow running as `python3 scripts/run_send_record_downloads.py` from project root
@@ -47,7 +49,30 @@ async def run(username: str, password: str, download_root: Path, headless: bool,
             run_root = build_run_root(download_root, timestamp)
             run_root.mkdir(parents=True, exist_ok=True)
 
-            await login_and_enter_system(page, ScmCredentials(username, password), run_root)
+            try:
+                await login_and_enter_system(page, ScmCredentials(username, password), run_root)
+            except Exception as login_err:
+                log.error("SCM 登录失败: %s", login_err)
+                if webhook:
+                    try:
+                        resp = requests.post(webhook, json={
+                            "msgtype": "text",
+                            "text": {
+                                "content": (
+                                    f"【SCM 登录失败告警】\n"
+                                    f"自动化流程已中止。\n"
+                                    f"错误：{login_err}\n"
+                                    f"截图：{run_root / 'slider_failed.png'}\n"
+                                    "请人工登录处理。"
+                                ),
+                                "mentioned_list": ["@all"],
+                            },
+                        }, timeout=10)
+                        if resp.json().get("errcode", 0) != 0:
+                            log.warning("Login alert webhook returned error: %s", resp.json())
+                    except Exception as alert_err:
+                        log.warning("Failed to send login alert: %s", alert_err)
+                raise
             right = await open_supply_release_right_frame(page)
             await query_unsigned_records(right)
 
@@ -95,6 +120,8 @@ def main() -> None:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--webhook", required=True)
     args = parser.parse_args()
+    if args.limit is not None and args.limit <= 0:
+        parser.error("--limit must be a positive integer")
     asyncio.run(run(args.username, args.password, args.download_root, args.headless, args.limit, args.webhook))
 
 
