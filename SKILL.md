@@ -206,6 +206,26 @@ print('环境检查通过')
    python3 scripts/email_listener.py --config config.json
    ```
 
+### config.json 字段规格
+
+| 字段 | 类型 | 必填 | 格式/约束 | 示例值 |
+|---|---|---|---|---|
+| `email.imap_host` | string | 是 | 合法域名或 IP，不含协议头 | `"imap.tinno.com"` |
+| `email.imap_port` | integer | 是 | 1-65535，IMAP over SSL 通常为 993 | `993` |
+| `email.username` | string | 是 | 完整邮箱地址，含 `@` 域名 | `"user@tinno.com"` |
+| `email.password` | string | 是 | 非空字符串，不做长度限制 | `"MyPass123"` |
+| `email.mailbox` | string | 否 | IMAP 文件夹名称，默认 `"INBOX"` | `"INBOX"` |
+| `email.trigger_recipients` | array of string | 否 | 每项须为合法邮箱地址；为空则所有邮件触发 | `["ZTE.Tinno@tinno.com"]` |
+| `scm.username` | string | 否 | SCM 登录账号，默认 `"TNProject01"` | `"TNProject01"` |
+| `scm.password` | string | 否 | SCM 登录密码，默认 `"Tinno@2030"` | `"Tinno@2030"` |
+| `wecom.webhook` | string | 是 | 企业微信 Webhook 完整 URL，须含 `key=` 参数 | `"https://qyapi.weixin.qq.com/..."` |
+
+**校验失败时的行为：**
+- 缺少必填字段 → `ConfigError` 异常，输出缺失字段名，程序退出
+- `imap_port` 非整数 → JSON 解析阶段报错
+- `trigger_recipients` 含非邮箱格式字符串 → 不报错，但 IMAP 匹配始终失败（静默跳过）
+- `wecom.webhook` 为空字符串 → `ConfigError: Missing wecom.webhook in config`
+
 > **注意：** `config.json` 包含敏感凭据，已加入 `.gitignore`，不会被提交到仓库。
 
 ## 适用场景
