@@ -149,4 +149,6 @@ async def login_and_enter_system(
                 return
             await page.wait_for_timeout(500)
 
+    if artifacts_dir is not None:
+        await page.screenshot(path=str(artifacts_dir / "slider_failed.png"), full_page=True)
     raise RuntimeError("Failed to pass slider captcha after 3 attempts")
