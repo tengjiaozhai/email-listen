@@ -50,6 +50,19 @@ def decode_str(s):
     return "".join(result)
 
 
+def extract_title_filter_from_body(body: str) -> str | None:
+    """从邮件正文中提取 '内容:' 字段的值。
+
+    正文每行格式为 key:value，提取 '内容' 对应的值并 strip。
+    找不到或值为空时返回 None。
+    """
+    for line in body.splitlines():
+        if line.startswith("内容:"):
+            value = line[len("内容:"):].strip()
+            return value if value else None
+    return None
+
+
 def should_trigger(to_field: str, config: AppConfig) -> bool:
     """判断邮件收件人是否匹配配置的触发列表。
 
@@ -89,7 +102,7 @@ def connect(config: AppConfig):
 def fetch_and_process(
     client,
     msg_ids,
-    on_new_email: Callable[[str, str, str], Union[Awaitable[None], None]],
+    on_new_email: Callable[[str, str, str, str | None], Union[Awaitable[None], None]],
     config: AppConfig,
 ):
     if not msg_ids:
@@ -119,14 +132,34 @@ def fetch_and_process(
             log.info("UID=%s 收件人不在 trigger_recipients 中，跳过触发", uid)
             continue
 
+        # 解析邮件正文，提取标题过滤条件
+        body_text = ""
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain" and not part.get_content_disposition():
+                    charset = part.get_content_charset() or "utf-8"
+                    body_text = part.get_payload(decode=True).decode(charset, errors="replace")
+                    break
+        else:
+            charset = msg.get_content_charset() or "utf-8"
+            payload = msg.get_payload(decode=True)
+            if payload:
+                body_text = payload.decode(charset, errors="replace")
+
+        title_filter = extract_title_filter_from_body(body_text)
+        if title_filter is None:
+            log.warning("UID=%s 邮件正文未找到「内容」字段，跳过本次 SCM 流程", uid)
+            continue
+
         print("\n" + "=" * 60)
         print(f"  UID    : {uid}")
         print(f"  时间   : {date}")
         print(f"  发件人 : {sender}")
         print(f"  主题   : {subject}")
+        print(f"  标题   : {title_filter}")
         print("=" * 60)
 
-        result = on_new_email(subject, sender, date)
+        result = on_new_email(subject, sender, date, title_filter)
         if hasattr(result, "__await__"):
             import asyncio
             asyncio.run(result)
@@ -134,7 +167,7 @@ def fetch_and_process(
 
 def listen(
     config: AppConfig,
-    on_new_email: Callable[[str, str, str], Union[Awaitable[None], None]],
+    on_new_email: Callable[[str, str, str, str | None], Union[Awaitable[None], None]],
 ):
     client, known_uids = connect(config)
 
@@ -180,8 +213,8 @@ def main():
 
     config = load_config(args.config)
 
-    def on_email(subject: str, sender: str, date: str):
-        log.info("新邮件到达，准备触发 SCM 下载...")
+    def on_email(subject: str, sender: str, date: str, title_filter: str | None):
+        log.info("新邮件到达，标题过滤条件: %r，准备触发 SCM 下载...", title_filter)
         from run_send_record_downloads import run as scm_run
         import asyncio
         asyncio.run(scm_run(
@@ -191,6 +224,7 @@ def main():
             headless=True,
             limit=None,
             webhook=config.wecom.webhook,
+            title_filter=title_filter,
         ))
         log.info("SCM 下载流程完成")
 

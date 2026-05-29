@@ -85,7 +85,7 @@ def test_fetch_and_process_skips_non_matching_recipient():
 
     called = []
 
-    def on_new_email(subject: str, sender: str, date: str):
+    def on_new_email(subject: str, sender: str, date: str, title_filter):
         called.append((subject, sender, date))
 
     fetch_and_process(client, [101], on_new_email, config)
@@ -106,7 +106,7 @@ def test_fetch_and_process_triggers_matching_recipient_case_insensitive():
 
     called = []
 
-    def on_new_email(subject: str, sender: str, date: str):
+    def on_new_email(subject: str, sender: str, date: str, title_filter):
         called.append((subject, sender, date))
 
     fetch_and_process(client, [102], on_new_email, config)
@@ -121,13 +121,13 @@ class _FakeClient:
         return {msg_ids[0]: {b"RFC822": self._raw_message}}
 
 
-def _build_email(to: str, sender: str, subject: str) -> EmailMessage:
+def _build_email(to: str, sender: str, subject: str, body: str = "内容:测试标题") -> EmailMessage:
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = to
     msg["Date"] = "Tue, 19 May 2026 12:00:00 +0800"
-    msg.set_content("body")
+    msg.set_content(body)
     return msg
 
 
@@ -151,3 +151,70 @@ def _make_config(trigger_recipients=None):
         json.dump(cfg, f)
         f.flush()
         return load_config(Path(f.name))
+
+
+def test_extract_title_filter_standard_format():
+    from email_listener import extract_title_filter_from_body
+    body = (
+        "发放人:cui.lichao@zte.com.cn\n"
+        "收件人:ZTE.Tinno@tinno.com\n"
+        "发放时间:2026-05-21 19:46:23\n"
+        "内容:P615F03 Z2581 生产技术通知单20260520"
+    )
+    assert extract_title_filter_from_body(body) == "P615F03 Z2581 生产技术通知单20260520"
+
+
+def test_extract_title_filter_missing_field():
+    from email_listener import extract_title_filter_from_body
+    body = "发放人:someone@zte.com.cn\n收件人:ZTE.Tinno@tinno.com"
+    assert extract_title_filter_from_body(body) is None
+
+
+def test_extract_title_filter_empty_string():
+    from email_listener import extract_title_filter_from_body
+    assert extract_title_filter_from_body("") is None
+
+
+def test_extract_title_filter_strips_whitespace():
+    from email_listener import extract_title_filter_from_body
+    body = "内容:  P615F03 Z2581  "
+    assert extract_title_filter_from_body(body) == "P615F03 Z2581"
+
+
+def test_fetch_and_process_extracts_title_and_passes_to_callback():
+    from email_listener import fetch_and_process
+    body = "发放人:cui.lichao@zte.com.cn\n内容:P615F03 生产技术通知单20260520"
+    msg = _build_email(
+        to="ZTE.Tinno@tinno.com",
+        sender="cui.lichao@zte.com.cn",
+        subject="发放通知",
+        body=body,
+    )
+    client = _FakeClient(msg.as_bytes())
+    config = _make_config(trigger_recipients=["zte.tinno@tinno.com"])
+    called = []
+
+    def on_new_email(subject, sender, date, title_filter):
+        called.append(title_filter)
+
+    fetch_and_process(client, [103], on_new_email, config)
+    assert called == ["P615F03 生产技术通知单20260520"]
+
+
+def test_fetch_and_process_skips_when_body_has_no_content_field():
+    from email_listener import fetch_and_process
+    msg = _build_email(
+        to="ZTE.Tinno@tinno.com",
+        sender="cui.lichao@zte.com.cn",
+        subject="发放通知",
+        body="发放人:cui.lichao@zte.com.cn",
+    )
+    client = _FakeClient(msg.as_bytes())
+    config = _make_config(trigger_recipients=["zte.tinno@tinno.com"])
+    called = []
+
+    def on_new_email(subject, sender, date, title_filter):
+        called.append(title_filter)
+
+    fetch_and_process(client, [104], on_new_email, config)
+    assert called == []
