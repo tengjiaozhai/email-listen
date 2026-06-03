@@ -12,6 +12,6 @@
     "password": "Tinno@2030"
   },
   "wecom": {
-    "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=75be340b-c64d-4a92-bcd5-83893d65f332"
+    "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=8e88310d-1a44-4748-8c8d-f7eac2f1f6e5"
   }
 }
